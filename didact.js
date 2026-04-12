@@ -20,22 +20,87 @@ function createElement(type, props, ...children) {
   }
 }
 
-function render(element, container) {
+function createDom(fiber) {
   const dom =
-    element.type === "TEXT_ELEMENT"
+    fiber.type === "TEXT_ELEMENT"
       ? document.createTextNode("")
-      : document.createElement(element.type)
+      : document.createElement(fiber.type)
 
   const isProperty = key => key !== "children"
-  Object.keys(element.props)
+  Object.keys(fiber.props)
     .filter(isProperty)
     .forEach(name => {
-      dom[name] = element.props[name]
+      dom[name] = fiber.props[name]
     })
 
-  element.props.children.forEach(child => render(child, dom))
+  return dom
+}
 
-  container.appendChild(dom)
+let nextUnitOfWork = null
+
+function render(element, container) {
+  nextUnitOfWork = {
+    dom: container,
+    props: {
+      children: [element],
+    },
+  }
+}
+
+function workLoop(deadline) {
+  let shouldYield = false
+  while (nextUnitOfWork && !shouldYield) {
+    nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
+    shouldYield = deadline.timeRemaining() < 1
+  }
+  requestIdleCallback(workLoop)
+}
+
+requestIdleCallback(workLoop)
+
+function performUnitOfWork(fiber) {
+
+  if (!fiber.dom) {
+    fiber.dom = createDom(fiber)
+  }
+  if (fiber.parent) {
+    fiber.parent.dom.appendChild(fiber.dom)
+  }
+
+  const elements = fiber.props.children
+  let index = 0
+  let prevSibling = null
+
+  while (index < elements.length) {
+    const element = elements[index]
+
+    const newFiber = {
+      type: element.type,
+      props: element.props,
+      parent: fiber,
+      dom: null,
+    }
+
+    if (index === 0) {
+      fiber.child = newFiber
+    } else {
+      prevSibling.sibling = newFiber
+    }
+
+    prevSibling = newFiber
+    index++
+  }
+
+  if (fiber.child) {
+    return fiber.child
+  }
+  let nextFiber = fiber
+  while (nextFiber) {
+    if (nextFiber.sibling) {
+      return nextFiber.sibling
+    }
+    nextFiber = nextFiber.parent
+  }
 }
 
 const Didact = {
@@ -46,8 +111,8 @@ const Didact = {
 const element = Didact.createElement(
   "div",
   { id: "container-principal", style: "font-family: sans-serif; padding: 20px;" },
-  Didact.createElement("h1", null, "Didact Funcionando!"),
-  Didact.createElement("p", null, "A Missão 1 foi renderizada com sucesso.")
+  Didact.createElement("h1", null, "Didact: Missão 2"),
+  Didact.createElement("p", null, "Concurrent Mode e Fibers implementados com sucesso.")
 )
 
 const container = document.getElementById("root")
