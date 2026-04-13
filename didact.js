@@ -262,18 +262,3 @@ const Didact = {
   render,
   useState,
 }
-
-const container = document.getElementById("root");
-
-function Greeting(props) {
-  return Didact.createElement(
-    "h1",
-    { style: "color: green;" },
-    "Mission 4: Hello, ",
-    props.name,
-    "!"
-  );
-}
-
-const App = Didact.createElement(Greeting, { name: "Function Components" });
-Didact.render(App, container);
